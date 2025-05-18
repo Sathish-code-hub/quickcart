@@ -17,11 +17,13 @@ export async function POST(request){
             return NextResponse.json({success:false, message:"Invalid data"})            
         }
 
-        // calculate amount using items
-        const amount = await items.reduce(async (acc, item) => {
-            const product = await Product.findById(item.product);
-            return await acc + product.offerPrice * item.quantity
-        },0)
+        const prices = await Promise.all(
+            items.map(async (item) => {
+                const product = await Product.findById(item.product);
+                return product.offerPrice * item.quantity;
+            })
+        );
+        const amount = prices.reduce((total, curr) => total + curr, 0);
 
         await inngest.send({
             name: 'order/created',
@@ -30,7 +32,7 @@ export async function POST(request){
                 address,
                 items,
                 amount: amount + Math.floor(amount * 0.02),
-                date:date.now()
+                date:Date.now()
             }
         })
         
@@ -42,6 +44,7 @@ export async function POST(request){
         return NextResponse.json({success:true, message:'Order placed'})
         
     } catch (error) {
+       console.log(error)
        return NextResponse.json({success:false, message:error.message}) 
     }
 }
